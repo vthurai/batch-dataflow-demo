@@ -1,0 +1,57 @@
+[
+	{
+		"mode" : "REQUIRED",
+		"name" : "transitType",
+		"type" : "STRING"
+	},
+	{
+		"mode" : "REQUIRED",
+		"name" : "date",
+		"type" : "DATE"
+	},
+	{
+		"mode" : "REQUIRED",
+		"name" : "time",
+		"type" : "TIME"
+	},
+	{
+		"mode" : "REQUIRED",
+		"name" : "day",
+		"type" : "STRING"
+	},
+	{
+		"mode" : "REQUIRED",
+		"name" : "transitRoute",
+		"type" : "STRING"
+	},
+	{
+		"mode" : "REQUIRED",
+		"name" : "transitLocation",
+		"type" : "STRING"
+	},
+	{
+		"mode" : "REQUIRED",
+		"name" : "reasonForDelay",
+		"type" : "STRING"
+	},
+	{
+		"mode" : "REQUIRED",
+		"name" : "delayAmount",
+		"type" : "INTEGER"
+	},
+	{
+		"mode" : "REQUIRED",
+		"name" : "gapAmount",
+		"type" : "INTEGER"
+	},
+	{
+		"mode" : "NULLABLE",
+		"name" : "direction",
+		"type" : "STRING"
+	},
+	{
+		"mode" : "NULLABLE",
+		"name" : "vehicleNumber",
+		"type" : "STRING"
+	}
+]
