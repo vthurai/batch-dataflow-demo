@@ -20,4 +20,5 @@ The city of Toronto has provided delay information of TTC transits on their open
 ## Architecture
 
 Dataflow looks at 3 different blob storage locations to read each transit delay data plus an additional blob that contains mapping needed for the Subway delay data.  After parsing the data into the correct [BigQuery Schema](src/main/resources/TransitDelaySchema.json) specified in the table, dataflow will create a new table (truncate data if existing) in BigQuery
+
 ![alt text](src/main/resources/images/batch-dataflow-demo.jpg)
