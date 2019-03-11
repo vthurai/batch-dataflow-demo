@@ -18,4 +18,4 @@ The city of Toronto has provided delay information of TTC transits on their open
 * Cloud Identity and Access Management (IAM)
 
 ## Dataflow View
-![alt text](src\main\resources\images\batch-dataflow-visualization.png)
+![alt text](src/main/resources/images/batch-dataflow-visualization.png)
