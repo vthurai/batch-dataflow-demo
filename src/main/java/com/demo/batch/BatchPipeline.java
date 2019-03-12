@@ -33,6 +33,30 @@ import com.google.api.services.bigquery.model.TableRow;
  * 3 different delay data sources [Subway; Street Car; Bus], parsed into the common class TransitDelay
  * and written into BigQuery 
  *  
+ * <h2>Side Input</h2>
+ * 
+ * <p>A side input is constructed for the Subway Delay data as 'Reason For Delay' is coded.</p>
+ * 
+ * <p>The below separates the two column CSV into a map element and creates a PCollectView(Map)
+ * from the result.  This PCollectionView is used as a side input downstream</p>
+ * 
+ * <p><b>Note:</b> DoFn depending on side inputs will only run after the PCollectionView is complete</p>
+ *
+ * <h2>Reshuffle</h2>
+ * 
+ * </p> See <a href="https://beam.apache.org/releases/javadoc/2.0.0/org/apache/beam/sdk/transforms/Reshuffle.html">
+ * Reshuffle JavaDoc</a></p>
+ * 
+ * <p>Reshuffle, similar to GroupByKey and Combine, implements a 'fusion break'. In short, the parallelization of
+ * Dataflow assumes number of outputs from DoFn are small and optimizes the runner for these cases.  When the
+ * DoFn produces a large number of output, the parallelization is limited (work is not spread out as much and
+ * affects the autoscaling). Thus, using a reshuffle after this or even before a time-consuming DoFn (to ensure
+ * all threads are working in parallel) improves the performance of the pipeline. For more details, refer to:
+ * <a href="https://beam.apache.org/contribute/ptransform-style-guide/#performance">Beam Performance</a></p>
+ * 
+ * <p>In this example, each output from TextIO can lead to thousands of outputs.  Using a 'fusion break' will
+ * ensure the workload is further parallelized.</p>
+ * 
  * @author vax.thurai
  * @version 1.0
  */
@@ -40,25 +64,14 @@ import com.google.api.services.bigquery.model.TableRow;
 public class BatchPipeline {
 	public static Pipeline build(Pipeline p) {
 		
-		/**
-		 * <h2>Pipeline Options</h2>
-		 *  
+		/*
 		 * The options consists of the DataflowOptions and additional User-defined
 		 * options specified in BatchPipelineOptions.  This option will feed the processes
 		 * at RunTime using ValueProviders.
 		 */
 		BatchPipelineOptions pipelineOptions = (BatchPipelineOptions) p.getOptions();
 		
-		/**
-		 * <h2>Creating a Side Input</h2>
-		 * 
-		 * A side input is constructed for the Subway Delay data as 'Reason For Delay' is coded
-		 * 
-		 * The below seperates the two column CSV into a map element and creates a PCollectView(Map)
-		 * from the result.  This PCollectionView is used as a side input downstream
-		 * 
-		 * <b>Note:</b> DoFn depending on side inputs will only run after the PCollectionView is complete
-		 */
+
 		PCollectionView<Map<String, String>> subwayCodeMapping = p
 			.apply("Retrieve Codes", TextIO.read()
 					.from(pipelineOptions.getSubwayLogCodes()))
@@ -66,9 +79,7 @@ public class BatchPipeline {
 					.into(TypeDescriptors.kvs(TypeDescriptors.strings(), TypeDescriptors.strings()))
 					.via(input -> KV.of(input.split(",")[0], input.split(",")[1])))
 			.apply("Create Side Input", View.asMap());
-		
-
-		
+				
 		@SuppressWarnings("deprecation")
 		PCollection<TableRow> subwayData = p
 			.apply("Read from TTC Subway Delay Folder", TextIO.read()
@@ -78,22 +89,7 @@ public class BatchPipeline {
 					.withSideInputs(subwayCodeMapping))
 					.setCoder(AvroCoder.of(TransitDelay.class))
 			.apply("Parse To Table Row", ParDo.of(new ParseToTableRow()));
-		
-		/**
-		 * <h2>Reshuffle</h2>
-		 * 
-		 * @See <a href="https://beam.apache.org/releases/javadoc/2.0.0/org/apache/beam/sdk/transforms/Reshuffle.html">
-		 * Reshuffle JavaDoc</a>
-		 * 
-		 * Reshuffle, similar to GroupByKey and Combine, implements a 'fusion break'. In short, the
-		 * parallelization of Dataflow assumes number of outputs from DoFn are small and optimizes the
-		 * runner for these cases.  When the DoFn produces a large number of output, the parallelization
-		 * is limited (work is not spread out as much and affects the autoscaling). Thus, using a reshuffle
-		 * after this or even before a time-consuming DoFn (to ensure all threads are working in parallel)
-		 * can drastically improve the performance of the pipeline. For more details, refer to
-		 * @see <a href="https://beam.apache.org/contribute/ptransform-style-guide/#performance">Beam Performance</a> 
-		 */
-			
+
 		/*
 		 * Reads street car CSV data, validates the data, and parses into BigQuery TableRow object. 
 		 */
