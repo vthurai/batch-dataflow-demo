@@ -26,17 +26,39 @@ import com.demo.batch.model.TransitDelay;
 import com.demo.batch.model.TransitDelay.TransitType;
 import com.google.api.services.bigquery.model.TableRow;
 
+/**
+ * <h1>Batch Pipeline Construction</h1>
+ * 
+ * Construction of Batch Pipeline using a Dataflow template (via Value Provider).  Pipeline reads
+ * 3 different delay data sources [Subway; Street Car; Bus], parsed into the common class TransitDelay
+ * and written into BigQuery 
+ *  
+ * @author vax.thurai
+ * @version 1.0
+ */
+
 public class BatchPipeline {
 	public static Pipeline build(Pipeline p) {
 		
-		/*
-		 * The pipeline options are constructed into the Dataflow Template alongside the structure
-		 * of the pipeline.  The options consists of the DataflowOptions and additional User-defined
+		/**
+		 * <h2>Pipeline Options</h2>
+		 *  
+		 * The options consists of the DataflowOptions and additional User-defined
 		 * options specified in BatchPipelineOptions.  This option will feed the processes
 		 * at RunTime using ValueProviders.
 		 */
 		BatchPipelineOptions pipelineOptions = (BatchPipelineOptions) p.getOptions();
 		
+		/**
+		 * <h2>Creating a Side Input</h2>
+		 * 
+		 * A side input is constructed for the Subway Delay data as 'Reason For Delay' is coded
+		 * 
+		 * The below seperates the two column CSV into a map element and creates a PCollectView(Map)
+		 * from the result.  This PCollectionView is used as a side input downstream
+		 * 
+		 * <b>Note:</b> DoFn depending on side inputs will only run after the PCollectionView is complete
+		 */
 		PCollectionView<Map<String, String>> subwayCodeMapping = p
 			.apply("Retrieve Codes", TextIO.read()
 					.from(pipelineOptions.getSubwayLogCodes()))
@@ -44,6 +66,8 @@ public class BatchPipeline {
 					.into(TypeDescriptors.kvs(TypeDescriptors.strings(), TypeDescriptors.strings()))
 					.via(input -> KV.of(input.split(",")[0], input.split(",")[1])))
 			.apply("Create Side Input", View.asMap());
+		
+
 		
 		@SuppressWarnings("deprecation")
 		PCollection<TableRow> subwayData = p
@@ -54,7 +78,25 @@ public class BatchPipeline {
 					.withSideInputs(subwayCodeMapping))
 					.setCoder(AvroCoder.of(TransitDelay.class))
 			.apply("Parse To Table Row", ParDo.of(new ParseToTableRow()));
+		
+		/**
+		 * <h2>Reshuffle</h2>
+		 * 
+		 * @See <a href="https://beam.apache.org/releases/javadoc/2.0.0/org/apache/beam/sdk/transforms/Reshuffle.html">
+		 * Reshuffle JavaDoc</a>
+		 * 
+		 * Reshuffle, similar to GroupByKey and Combine, implements a 'fusion break'. In short, the
+		 * parallelization of Dataflow assumes number of outputs from DoFn are small and optimizes the
+		 * runner for these cases.  When the DoFn produces a large number of output, the parallelization
+		 * is limited (work is not spread out as much and affects the autoscaling). Thus, using a reshuffle
+		 * after this or even before a time-consuming DoFn (to ensure all threads are working in parallel)
+		 * can drastically improve the performance of the pipeline. For more details, refer to
+		 * @see <a href="https://beam.apache.org/contribute/ptransform-style-guide/#performance">Beam Performance</a> 
+		 */
 			
+		/*
+		 * Reads street car CSV data, validates the data, and parses into BigQuery TableRow object. 
+		 */
 		@SuppressWarnings("deprecation")
 		PCollection<TableRow> streetcarData = p
 				.apply("Read from TTC Streetcar Delay Folder", TextIO.read()
@@ -64,6 +106,9 @@ public class BatchPipeline {
 						.setCoder(AvroCoder.of(TransitDelay.class))
 				.apply("Parse To Table Row", ParDo.of(new ParseToTableRow()));
 
+		/*
+		 * Reads bus CSV data, validates the data, and parses into BigQuery TableRow object. 
+		 */
 		@SuppressWarnings("deprecation")
 		PCollection<TableRow> busData = p
 				.apply("Read from TTC Bus Delay Folder", TextIO.read()
